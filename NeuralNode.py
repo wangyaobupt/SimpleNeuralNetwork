@@ -8,7 +8,8 @@ class NeuralNode:
     #当前结点与前一级的连接数目
     self.iDims = inputDim
     #权重向量，Shape = (iDims, )
-    self.weight = 10*np.random.rand(self.iDims)
+    #self.weight = 10*np.random.rand(self.iDims)
+    self.weight = np.ones(self.iDims)
     #偏置 
     self.bias = 1
     #激活函数之前的计算结果
