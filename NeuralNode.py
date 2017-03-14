@@ -8,12 +8,14 @@ class NeuralNode:
     #当前结点与前一级的连接数目
     self.iDims = inputDim
     #权重向量，Shape = (iDims, )
-    #self.weight = 10*np.random.rand(self.iDims)
-    self.weight = np.ones(self.iDims)
+    self.weight = np.random.rand(self.iDims)
+    #self.weight = np.ones(self.iDims)
     #偏置 
     self.bias = 1
-    #激活函数之前的计算结果
-    self.dotValue = 1
+    #激活函数的输入
+    self.z = 1
+    #当前层的残差
+    self.delta = 1
     #前级节点的输入向量，必须与iDims匹配，Shape = (iDims, )的向量
     self.x = []
     #ada算法新增状态变量
@@ -29,19 +31,35 @@ class NeuralNode:
       print ("Wrong input shape: x.shape = " + str(ix.shape))
       return
     self.x = ix
-    self.dotValue = np.dot(self.x,self.weight) + self.bias
-    return sigmoid(self.dotValue)
+    self.z = np.dot(self.x, self.weight) + self.bias
+    if self.z >1000:
+      self.z = 1000
+    elif self.z < -1000:
+      self.z = -1000
+    return sigmoid(self.z)
   
   #backward: 输入前一级计算出的梯度，输出为两个数组
   #第一个数组: dx，iDims*1向量，即当前节点对于前一级每个输入的梯度
   #第二个数组：dw，iDims*1向量，当前节点对于每个权重的梯度
   #第三个数组：dbias, 1*1向量，当前节点对于偏置量的梯度
   def backward(self, gradient):
-    ddot =  (1-self.dotValue) * self.dotValue #Sigmoid函数的求导
-    dx = self.weight*ddot*gradient # 回传到x
-    dw = self.x*ddot*gradient # 回传到w
-    dbias = ddot*gradient # 回传到bias
-    return [dx, dw, dbias]
+    try:
+      #print 'self.z = ', self.z
+      dz = (1 - self.z) * self.z #Sigmoid函数的求导
+    except RuntimeWarning:
+      print 'self.z = ', self.z
+      if np.isnan(dz):
+        dz = np.nan_to_num(dz)
+      print 'dz=', dz
+
+    self.delta = dz*gradient
+    dw = self.x * self.delta  # 回传到w
+    if np.isnan(dw).any():
+      dz = np.nan_to_num(dw)
+    dbias = self.delta  # 回传到bias
+    if np.isnan(dbias).any():
+      dz = np.nan_to_num(dbias)
+    return [dw, dbias]
   
   #根据AdamOptimization算法调整
   def adaOptimization(self, learnRate, dw, dbias):
@@ -69,8 +87,10 @@ class NeuralNode:
   
   #打印节点内部参数
   def printParam(self):
-    print "Weight = " + str(self.weight)
-    print "Bias = " + str(self.bias)
+    print "Weight = ", self.weight , " Bias = ", self.bias
+
+  def getParam(self):
+    return [self.weight, self.bias]
 
 def sigmoid(x):
   result = 1 / (1 + np.exp(-1*x))
@@ -103,7 +123,7 @@ def unitTest_naiveTrain():
     dLossdvalue = 2*(target-fowardResult)
     grad = n1.backward(dLossdvalue)
     #print "grad=",grad
-    n1.adjustWeightAndBias(0.001, grad[1], grad[2])
+    n1.adjustWeightAndBias(0.001, grad[0], grad[1])
     if np.sum(np.abs(prevWeight - n1.weight)) < 1e-7:
       break
     prevWeight = n1.weight
@@ -136,7 +156,7 @@ def unitTest_AdamOptimize():
     dLossdvalue = 2*(target-fowardResult)
     grad = n1.backward(dLossdvalue)
     #print "grad=",grad
-    n1.adaOptimization(0.001, grad[1], grad[2])
+    n1.adaOptimization(0.001, grad[0], grad[1])
     if np.sum(np.abs(prevWeight - n1.weight)) < 1e-7:
       break
     prevWeight = n1.weight
@@ -152,8 +172,8 @@ if __name__ == '__main__':
   for i in range(100):
     naiveResult =  unitTest_naiveTrain()
     naiveResultStr = naiveResultStr + str(naiveResult) + "\n"
-    adamResult =  unitTest_AdamOptimize()
-    adamResultStr = adamResultStr + str(adamResult) + "\n"
+    #adamResult =  unitTest_AdamOptimize()
+    #adamResultStr = adamResultStr + str(adamResult) + "\n"
   print naiveResultStr
   print ""
   print adamResultStr
