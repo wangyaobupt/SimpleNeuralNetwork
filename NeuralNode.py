@@ -1,5 +1,7 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
+
+# author: wangyao_bupt@hotmail.com
 import numpy as np
 
 class NeuralNode:
