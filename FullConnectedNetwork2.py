@@ -8,6 +8,8 @@ import numpy as np
 # The difference between FullConnectedNetwork2 and FullConnectedNetwork is:
 # In FullConnectedNetwork2, the weights and bias is stored in matrix format.The NeuralNode class is NOT used in FullConnectedNetwork2
 class FullConnectedNetwork2:
+  __debugMode__ = True
+
   # @param iStructure is a list containing L enlements, representing L layers of a fully connected netowrk
   # The 1st element (aka iStructure[0]) define number of input nodes
   # the i-th element (aka iStructure[i-1]) define number of neural nodes in i-th layer
@@ -27,9 +29,14 @@ class FullConnectedNetwork2:
       # weight(^l)(_ji): the weight from i-th node in (l) layer to j-th node in (l+1) layer
       # b(^l)(_j): the bias of j-th node in (l+1) layer
       # s_l: number of nodes in (l) layer
-      weightMatrixBetweenCurAndNextLayer = np.random.randn(
-        iStructure[layerIdx+1],iStructure[layerIdx]+1)
-      self.weightMatrixList.append(weightMatrixBetweenCurAndNextLayer)
+      if (not FullConnectedNetwork2.__debugMode__):
+        weightMatrixBetweenCurAndNextLayer = np.random.randn(
+          iStructure[layerIdx+1],iStructure[layerIdx]+1)
+      else:
+        weightMatrixBetweenCurAndNextLayer = np.zeros((iStructure[layerIdx+1],iStructure[layerIdx]+1))
+        weightMatrixBetweenCurAndNextLayer[0] = [1,-1,1]
+        weightMatrixBetweenCurAndNextLayer[1] = [1, -1, 1]
+      self.weightMatrixList[layerIdx] = weightMatrixBetweenCurAndNextLayer
     # activationValueMatrix is activation values of each layer in each sample in a batch,
     # activationValueMatrix's shape is (batchSize, numberOfLayers), each element is an 1-D vector,
     # For example, given batchIdx = b, LayerIndex = l, the activationValueMatrix[b][l] represents
@@ -52,11 +59,13 @@ class FullConnectedNetwork2:
       print "Invalid Batch Size:",batchSize
     result =np.ndarray((batchSize, self.networkStructure[-1]))
     for sampleIdx in range(0, batchSize):
-      #the a[sampleIdx][layerIdx] always equal to inputVector
-      self.activationValueMatrix[sampleIdx][layerIdx] = inputData[sampleIdx]
+      #the a[sampleIdx][0] always equal to inputVector
+      self.activationValueMatrix[sampleIdx][0] = inputData[sampleIdx]
       for layerIdx in range(1, self.numberOfLayers):
+        activation_and_one = np.ones(self.activationValueMatrix[sampleIdx][layerIdx - 1].shape[0]+1)
+        activation_and_one[:-1] = self.activationValueMatrix[sampleIdx][layerIdx - 1]
         self.zMatrix[sampleIdx][layerIdx] \
-          = np.matmul(self.weightMatrixList[layerIdx], self.activationValueMatrix[sampleIdx][layerIdx - 1])
+          = np.matmul(self.weightMatrixList[layerIdx - 1], activation_and_one)
         self.activationValueMatrix[sampleIdx][layerIdx] = self.sigmoid(self.zMatrix[sampleIdx][layerIdx])
       result[sampleIdx] = self.activationValueMatrix[sampleIdx][self.numberOfLayers-1]
     return result
@@ -75,7 +84,8 @@ class FullConnectedNetwork2:
   # the label should be in the same batch size as data, i.e. in shape of (batchSize, numberOfOutputNode
   def train(self, data, label, learningRate):
     predictedResult = self.forward(data)
-    print 'loss before training: ', self.lossEvaluation(predictedResult, label)
+    if FullConnectedNetwork2.__debugMode__:
+      print 'loss before training: ', self.lossEvaluation(predictedResult, label)
     # for each node i in layer l, we would like to compute an "error term"  that measures
     # how much that node was "responsible" for any errors in our output
     # delta represent such error
@@ -84,15 +94,15 @@ class FullConnectedNetwork2:
     ## initialize delta_weightAndBias to all zeros
     delta_weightAndBias = np.ndarray((self.numberOfLayers-1), np.object)
     for layerIdx in range(0, self.numberOfLayers-1):
-      delta_weightAndBias = np.zeros(self.weightMatrixList[layerIdx].shape)
+      delta_weightAndBias[layerIdx] = np.zeros(self.weightMatrixList[layerIdx].shape)
 
     ## calculate deritives of each weight/bias at each node in eachlayer in each sample
     for sampleIdx in range(0, self.batchSize):
       delta[sampleIdx][-1] = \
         -(label[sampleIdx] - self.activationValueMatrix[sampleIdx][self.numberOfLayers-1])\
         *self.dsigmoiddx_usingActivationValue(self.activationValueMatrix[sampleIdx][self.numberOfLayers-1])
-      for layerIdx in range(self.numberOfLayers-2, 0, -1):
-        delta[sampleIdx][layerIdx] = np.matmul(delta[sampleIdx][layerIdx+1], self.weightMatrixList[layerIdx])
+      for layerIdx in range(self.numberOfLayers-2, -1, -1):
+        delta[sampleIdx][layerIdx] = np.matmul(delta[sampleIdx][layerIdx+1], self.weightMatrixList[layerIdx][:,:-1])
         ## dWeightAndBias is value of desired partial derivatives
         dWeightAndBias = np.zeros(self.weightMatrixList[layerIdx].shape)
         for rowIdx in range(0, self.weightMatrixList[layerIdx].shape[0]):
@@ -110,7 +120,6 @@ class FullConnectedNetwork2:
       self.weightMatrixList[layerIdx] = self.weightMatrixList[layerIdx] - \
                                         learningRate*delta_weightAndBias[layerIdx]/self.batchSize
 
-
   def sigmoid(self, x):
     result = 1 / (1 + np.exp(-1*x))
     return result
@@ -120,3 +129,42 @@ class FullConnectedNetwork2:
 
   def dsigmoiddx_usingActivationValue(self, activationValue):
     return (1-activationValue)*activationValue
+
+  def debugPrintWeights(self):
+    for layerIdx in range(0, self.numberOfLayers-1):
+      for nodeIdx in range(0, self.networkStructure[layerIdx+1]):
+        print 'Layer ', (layerIdx+1), ' Node ', nodeIdx, " Weight = ", self.weightMatrixList[layerIdx][nodeIdx][:-1], " bias = ", self.weightMatrixList[layerIdx][nodeIdx][-1]
+
+def generateTestDataAndLabel(batchSize):
+  testData = np.random.randn(batchSize, 2)
+  label = np.zeros([batchSize, 2])
+  for batchIdx in range(0, batchSize):
+    if testData[batchIdx][0] >= testData[batchIdx][1]:
+      label[batchIdx][0] = 1
+    else:
+      label[batchIdx][1] = 1
+  return [testData, label]
+
+if __name__ == "__main__":
+  batchSize = 10
+  learningRate = 0.03
+
+  FullConnectedNetwork2.__debugMode__ = True
+  network = FullConnectedNetwork2([2,2,2],batchSize)
+  network.debugPrintWeights()
+
+  [testData, label] = generateTestDataAndLabel(batchSize)
+
+  predictedResult = network.forward(testData)
+
+  for dataIdx in range(0, batchSize):
+    print 'inputData = ', testData[dataIdx], "Layer 1 actValue=", network.activationValueMatrix[dataIdx][1], " PredictedResult = ", network.activationValueMatrix[dataIdx][2], " Label = ", label[dataIdx]
+
+  for dataBatchIdx in range(0, 1):
+    [testData, label] = generateTestDataAndLabel(batchSize)
+    for trainLoopIdx in range(0, 100):
+      network.train(testData, label, learningRate)
+
+  network.debugPrintWeights()
+  for dataIdx in range(0, batchSize):
+    print 'inputData = ', testData[dataIdx], "Layer 1 actValue=", network.activationValueMatrix[dataIdx][1], " PredictedResult = ", network.activationValueMatrix[dataIdx][2], " Label = ", label[dataIdx]
