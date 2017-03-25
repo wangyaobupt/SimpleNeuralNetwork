@@ -35,7 +35,7 @@ class FullConnectedNetwork2:
       else:
         weightMatrixBetweenCurAndNextLayer = np.zeros((iStructure[layerIdx+1],iStructure[layerIdx]+1))
         weightMatrixBetweenCurAndNextLayer[0] = [1,-1,1]
-        weightMatrixBetweenCurAndNextLayer[1] = [1, -1, 1]
+        weightMatrixBetweenCurAndNextLayer[1] = [2, -2, 1]
       self.weightMatrixList[layerIdx] = weightMatrixBetweenCurAndNextLayer
     # activationValueMatrix is activation values of each layer in each sample in a batch,
     # activationValueMatrix's shape is (batchSize, numberOfLayers), each element is an 1-D vector,
@@ -89,7 +89,7 @@ class FullConnectedNetwork2:
     # for each node i in layer l, we would like to compute an "error term"  that measures
     # how much that node was "responsible" for any errors in our output
     # delta represent such error
-    delta = np.ndarray((self.batchSize, self.numberOfLayers), np.object)
+    delta = np.ndarray((self.batchSize, self.numberOfLayers-1), np.object)
 
     ## initialize delta_weightAndBias to all zeros
     delta_weightAndBias = np.ndarray((self.numberOfLayers-1), np.object)
@@ -101,19 +101,41 @@ class FullConnectedNetwork2:
       delta[sampleIdx][-1] = \
         -(label[sampleIdx] - self.activationValueMatrix[sampleIdx][self.numberOfLayers-1])\
         *self.dsigmoiddx_usingActivationValue(self.activationValueMatrix[sampleIdx][self.numberOfLayers-1])
-      for layerIdx in range(self.numberOfLayers-2, -1, -1):
-        delta[sampleIdx][layerIdx] = np.matmul(delta[sampleIdx][layerIdx+1], self.weightMatrixList[layerIdx][:,:-1])
+      for layerIdx in range(self.numberOfLayers-3, -1, -1):
+        #build vector for f'(z_i)
+        dsigmoidVector = np.zeros(self.networkStructure[layerIdx+1])
+        for nodeIdx in range(0, self.networkStructure[layerIdx+1]):
+          dsigmoidVector[nodeIdx] = self.dsigmoiddx_usingActivationValue(self.activationValueMatrix[sampleIdx][layerIdx+1][nodeIdx])
+        # build weight matrix, remove bias column
+        weightMatrix = self.weightMatrixList[layerIdx];
+        weightMatrix = np.zeros((self.weightMatrixList[layerIdx].shape[0],self.weightMatrixList[layerIdx].shape[1]-1) )
+        for rowIdx in range(0, weightMatrix.shape[0]):
+          for colIdx in range(0, weightMatrix.shape[1]):
+            weightMatrix[rowIdx][colIdx] = self.weightMatrixList[layerIdx][rowIdx][colIdx]
+        weightMatrix = np.transpose(weightMatrix)
+        #calculate delta
+        delta[sampleIdx][layerIdx] = np.matmul(weightMatrix, delta[sampleIdx][layerIdx+1]) * dsigmoidVector
+
+      for layerIdx in range(0, self.numberOfLayers-1):
         ## dWeightAndBias is value of desired partial derivatives
         dWeightAndBias = np.zeros(self.weightMatrixList[layerIdx].shape)
-        for rowIdx in range(0, self.weightMatrixList[layerIdx].shape[0]):
-          for colIdx in range(0, self.weightMatrixList[layerIdx].shape[1]):
-            if colIdx >= self.networkStructure[layerIdx]:
-              dWeightAndBias[rowIdx][colIdx] = delta[sampleIdx][layerIdx][rowIdx]
+        for i in range(0, self.weightMatrixList[layerIdx].shape[0]):
+          for j in range(0, self.weightMatrixList[layerIdx].shape[1]):
+            if j >= self.networkStructure[layerIdx]:
+              #dbias
+              dWeightAndBias[i][j] = delta[sampleIdx][layerIdx][i]
             else:
-              dWeightAndBias[rowIdx][colIdx] = delta[sampleIdx][layerIdx][rowIdx] \
-                                             * self.activationValueMatrix[sampleIdx][layerIdx][colIdx];
+              dWeightAndBias[i][j]  = delta[sampleIdx][layerIdx][i] \
+                                             * self.activationValueMatrix[sampleIdx][layerIdx][j];
+        if self.__debugMode__:
+          print 'Sample Idex = ', sampleIdx, " LayerIdx = ", layerIdx, " dWeightAndBias = ", dWeightAndBias
         ##For each layer in each sample, update  delta_weightAndBias
         delta_weightAndBias[layerIdx] += dWeightAndBias
+
+    if self.__debugMode__:
+      for sampleIdx in range(0,self.batchSize):
+        for layerIdx in range(0, self.numberOfLayers-1):
+          print 'Sample Idex = ', sampleIdx, " LayerIdx = ", layerIdx, " Delta = ",delta[sampleIdx][layerIdx]
 
     ##Update weights and bias
     for layerIdx in range(0, self.numberOfLayers-1):
@@ -146,14 +168,18 @@ def generateTestDataAndLabel(batchSize):
   return [testData, label]
 
 if __name__ == "__main__":
-  batchSize = 10
+  batchSize = 1
   learningRate = 0.03
 
   FullConnectedNetwork2.__debugMode__ = True
   network = FullConnectedNetwork2([2,2,2],batchSize)
   network.debugPrintWeights()
 
-  [testData, label] = generateTestDataAndLabel(batchSize)
+  testData = np.ones((1, 2))
+  testData[0][1] = 2
+  label = np.zeros((1, 2))
+  label[0][1] = 1
+  #[testData, label] = generateTestDataAndLabel(batchSize)
 
   predictedResult = network.forward(testData)
 
@@ -161,10 +187,11 @@ if __name__ == "__main__":
     print 'inputData = ', testData[dataIdx], "Layer 1 actValue=", network.activationValueMatrix[dataIdx][1], " PredictedResult = ", network.activationValueMatrix[dataIdx][2], " Label = ", label[dataIdx]
 
   for dataBatchIdx in range(0, 1):
-    [testData, label] = generateTestDataAndLabel(batchSize)
-    for trainLoopIdx in range(0, 100):
+    #[testData, label] = generateTestDataAndLabel(batchSize)
+    for trainLoopIdx in range(0, 1):
       network.train(testData, label, learningRate)
 
   network.debugPrintWeights()
+  network.forward(testData)
   for dataIdx in range(0, batchSize):
     print 'inputData = ', testData[dataIdx], "Layer 1 actValue=", network.activationValueMatrix[dataIdx][1], " PredictedResult = ", network.activationValueMatrix[dataIdx][2], " Label = ", label[dataIdx]
