@@ -34,8 +34,9 @@ class FullConnectedNetwork2:
           iStructure[layerIdx+1],iStructure[layerIdx]+1)
       else:
         weightMatrixBetweenCurAndNextLayer = np.zeros((iStructure[layerIdx+1],iStructure[layerIdx]+1))
-        weightMatrixBetweenCurAndNextLayer[0] = [1,-1,1]
-        weightMatrixBetweenCurAndNextLayer[1] = [2, -2, 1]
+        if self.__debugMode__:
+          weightMatrixBetweenCurAndNextLayer[0] = [1,-1,1]
+          weightMatrixBetweenCurAndNextLayer[1] = [2, -2, 1]
       self.weightMatrixList[layerIdx] = weightMatrixBetweenCurAndNextLayer
     # activationValueMatrix is activation values of each layer in each sample in a batch,
     # activationValueMatrix's shape is (batchSize, numberOfLayers), each element is an 1-D vector,
@@ -84,7 +85,7 @@ class FullConnectedNetwork2:
   # the label should be in the same batch size as data, i.e. in shape of (batchSize, numberOfOutputNode
   def train(self, data, label, learningRate):
     predictedResult = self.forward(data)
-    if FullConnectedNetwork2.__debugMode__:
+    if self.__debugMode__:
       print 'loss before training: ', self.lossEvaluation(predictedResult, label)
     # for each node i in layer l, we would like to compute an "error term"  that measures
     # how much that node was "responsible" for any errors in our output
@@ -168,30 +169,25 @@ def generateTestDataAndLabel(batchSize):
   return [testData, label]
 
 if __name__ == "__main__":
-  batchSize = 1
-  learningRate = 0.03
+  batchSize = 1000
+  learningRate = 0.1
 
-  FullConnectedNetwork2.__debugMode__ = True
+  FullConnectedNetwork2.__debugMode__ = False
   network = FullConnectedNetwork2([2,2,2],batchSize)
   network.debugPrintWeights()
 
-  testData = np.ones((1, 2))
-  testData[0][1] = 2
-  label = np.zeros((1, 2))
-  label[0][1] = 1
   #[testData, label] = generateTestDataAndLabel(batchSize)
 
-  predictedResult = network.forward(testData)
+  #predictedResult = network.forward(testData)
 
-  for dataIdx in range(0, batchSize):
-    print 'inputData = ', testData[dataIdx], "Layer 1 actValue=", network.activationValueMatrix[dataIdx][1], " PredictedResult = ", network.activationValueMatrix[dataIdx][2], " Label = ", label[dataIdx]
+  #for dataIdx in range(0, batchSize):
+    #print 'inputData = ', testData[dataIdx], "Layer 1 actValue=", network.activationValueMatrix[dataIdx][1], " PredictedResult = ", network.activationValueMatrix[dataIdx][2], " Label = ", label[dataIdx]
 
-  for dataBatchIdx in range(0, 1):
-    #[testData, label] = generateTestDataAndLabel(batchSize)
-    for trainLoopIdx in range(0, 1):
+  for dataBatchIdx in range(0, 10):
+    [testData, label] = generateTestDataAndLabel(batchSize)
+    for trainLoopIdx in range(0, 100):
       network.train(testData, label, learningRate)
+      predictedResult = network.forward(testData)
+      print "LoopIdx=", trainLoopIdx, " Loss=", network.lossEvaluation(predictedResult, label)
 
   network.debugPrintWeights()
-  network.forward(testData)
-  for dataIdx in range(0, batchSize):
-    print 'inputData = ', testData[dataIdx], "Layer 1 actValue=", network.activationValueMatrix[dataIdx][1], " PredictedResult = ", network.activationValueMatrix[dataIdx][2], " Label = ", label[dataIdx]
