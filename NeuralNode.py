@@ -34,6 +34,7 @@ class NeuralNode:
       return
     self.x = ix
     self.z = np.dot(self.x, self.weight) + self.bias
+    #为了避免计算溢出，对z做最大值和最小值限制
     if self.z >1000:
       self.z = 1000
     elif self.z < -1000:
@@ -117,11 +118,11 @@ def unitTest_naiveTrain():
   counter = 0
   for i in range(1000000):
     counter=i
-    #print "Round",i
+    print "Round",i
     fowardResult = n1.forward(x)
     #print "Forward Result:",fowardResult
     loss = (fowardResult-target)*(fowardResult-target)
-    #print "Loss=",loss
+    print "Loss=",loss
     dLossdvalue = 2*(target-fowardResult)
     grad = n1.backward(dLossdvalue)
     #print "grad=",grad
@@ -129,8 +130,8 @@ def unitTest_naiveTrain():
     if np.sum(np.abs(prevWeight - n1.weight)) < 1e-7:
       break
     prevWeight = n1.weight
-    #n1.printParam()
-    #print ""
+    n1.printParam()
+    print ""
   n1.printParam()
   return [counter, loss, n1.weight, n1.bias]
   
@@ -171,11 +172,11 @@ def unitTest_AdamOptimize():
 if __name__ == '__main__':
   naiveResultStr = ""
   adamResultStr = ""
-  for i in range(100):
+  for i in range(1):
     naiveResult =  unitTest_naiveTrain()
     naiveResultStr = naiveResultStr + str(naiveResult) + "\n"
     #adamResult =  unitTest_AdamOptimize()
     #adamResultStr = adamResultStr + str(adamResult) + "\n"
   print naiveResultStr
   print ""
-  print adamResultStr
+  #print adamResultStr
