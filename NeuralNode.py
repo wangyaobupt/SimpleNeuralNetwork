@@ -13,7 +13,7 @@ class NeuralNode:
     self.weight = np.random.rand(self.iDims)
     #self.weight = np.ones(self.iDims)
     #偏置 
-    self.bias = 1
+    self.bias = np.random.rand(1)
     #激活函数的输入
     self.z = 1
     #当前层的残差
@@ -169,14 +169,49 @@ def unitTest_AdamOptimize():
   n1.printParam()
   return [counter, loss, n1.weight, n1.bias]
 
+def trainWithLargerDataSet(sizeOfDataSet):
+  iDims = 2
+  iterationNumber = 1000;
+  n1 = NeuralNode(iDims)
+  trainDataSet = np.random.randn(sizeOfDataSet,iDims)
+  np.savetxt('trainData.csv', trainDataSet, delimiter=',')
+  prevWeight = n1.weight
+  prevBias = n1.bias
+
+  for iterIdx in range(0, iterationNumber):
+    loss = 0
+    for sampleIdx in range(0, sizeOfDataSet):
+      # print "sampleIdx",sampleIdx
+      fowardResult = n1.forward(trainDataSet[sampleIdx])
+      # print "Forward Result:",fowardResult
+      if (trainDataSet[sampleIdx][0] >= trainDataSet[sampleIdx][1] ):
+        target = 0
+      else:
+        target = 1
+      loss = loss + (fowardResult - target) * (fowardResult - target)
+      # print "Loss=",loss
+      dLossdvalue = 2 * (target - fowardResult)
+      grad = n1.backward(dLossdvalue)
+      # print "grad=",grad
+      n1.adjustWeightAndBias(0.03, grad[0], grad[1])
+    if iterIdx % 10 == 0:
+      print "Loss=", loss, " iterIdx=", iterIdx
+      print n1.getParam()," iterIdx=", iterIdx
+    if (iterIdx > 0) and (np.sum(np.abs(prevWeight - n1.weight)) + np.abs(prevBias - n1.bias) < 1e-7):
+      break
+    prevWeight = n1.weight
+    prevBias = n1.bias
+
+  return [iterIdx, loss, n1.weight, n1.bias]
+
+
 if __name__ == '__main__':
   naiveResultStr = ""
   adamResultStr = ""
   for i in range(1):
-    naiveResult =  unitTest_naiveTrain()
-    naiveResultStr = naiveResultStr + str(naiveResult) + "\n"
-    #adamResult =  unitTest_AdamOptimize()
-    #adamResultStr = adamResultStr + str(adamResult) + "\n"
-  print naiveResultStr
-  print ""
-  #print adamResultStr
+    # naiveResult =  unitTest_naiveTrain()
+    # naiveResultStr = naiveResultStr + str(naiveResult) + "\n"
+    # adamResult =  unitTest_AdamOptimize()
+    # adamResultStr = adamResultStr + str(adamResult) + "\n"
+    result = trainWithLargerDataSet(1000)
+  print result
